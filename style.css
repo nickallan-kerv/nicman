@@ -1,0 +1,208 @@
+:root {
+  --bg-1: #0a101f;
+  --bg-2: #1a0f30;
+  --ink: #f8f3d4;
+  --accent: #f7b733;
+  --board: #020a19;
+  --line: #3fa9f5;
+  --line-glow: rgba(63, 169, 245, 0.5);
+  --danger: #ff5d73;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Chakra Petch", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(1200px circle at 15% 20%, rgba(247, 183, 51, 0.12), transparent 40%),
+    radial-gradient(1000px circle at 80% 80%, rgba(63, 169, 245, 0.15), transparent 45%),
+    linear-gradient(145deg, var(--bg-1), var(--bg-2));
+  display: grid;
+  place-items: start center;
+  padding: 0.25rem;
+}
+
+.app-shell {
+  width: min(98vw, 1180px);
+}
+
+.game-layout {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+}
+
+.side-panel {
+  width: 196px;
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+  padding: 0.15rem 0 0.15rem 0.35rem;
+}
+
+.side-panel h1 {
+  margin: 0;
+  font-family: "Bungee", sans-serif;
+  letter-spacing: 0.05em;
+  font-size: clamp(1.35rem, 2.3vw, 1.9rem);
+  text-transform: uppercase;
+  color: var(--accent);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), 0 0 20px rgba(247, 183, 51, 0.45);
+}
+
+.stats {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 700;
+}
+
+.stats p {
+  margin: 0;
+  padding: 0.3rem 0.48rem;
+  border: 1px solid rgba(248, 243, 212, 0.25);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.55rem;
+  letter-spacing: 0.02em;
+  min-height: 30px;
+}
+
+.stats .label {
+  opacity: 0.85;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+}
+
+.board-wrap {
+  position: relative;
+  margin: 0;
+  border-radius: 18px;
+  padding: 0.65rem;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+  border: 1px solid rgba(248, 243, 212, 0.12);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  background: var(--board);
+  border: 2px solid var(--line);
+  box-shadow: 0 0 24px var(--line-glow), inset 0 0 30px rgba(63, 169, 245, 0.1);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0.65rem;
+  border-radius: 12px;
+  background: rgba(2, 10, 25, 0.72);
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 0.75rem;
+  animation: fadeIn 280ms ease;
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.overlay h2 {
+  margin: 0;
+  font-family: "Bungee", sans-serif;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+.overlay p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.overlay button {
+  justify-self: center;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.65rem 1.1rem;
+  font: inherit;
+  font-weight: 700;
+  background: linear-gradient(120deg, #f7b733, #fc4a1a);
+  color: #100d0a;
+  cursor: pointer;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+.overlay button:hover {
+  transform: translateY(-1px) scale(1.02);
+  filter: brightness(1.05);
+}
+
+.overlay button:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .game-layout {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .side-panel {
+    width: min(94vw, 640px);
+    grid-template-columns: 1fr;
+    padding: 0;
+  }
+
+  .side-panel h1 {
+    text-align: center;
+    font-size: clamp(1.4rem, 7vw, 2rem);
+  }
+
+  .stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+    font-size: 0.9rem;
+  }
+
+  .stats p {
+    border-radius: 999px;
+    padding: 0.35rem 0.55rem;
+    gap: 0.4rem;
+  }
+
+  .stats .label {
+    font-size: 0.72rem;
+  }
+
+  .board-wrap {
+    padding: 0.55rem;
+  }
+
+  .overlay {
+    inset: 0.55rem;
+  }
+}

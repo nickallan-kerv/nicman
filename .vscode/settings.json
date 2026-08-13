@@ -1,0 +1,8 @@
+{
+  "vitest.enable": true,
+  "vitest.rootConfig": "vitest.config.cjs",
+  "vitest.commandLine": "npm run test:watch",
+  "vitest.include": [
+    "tests/**/*.test.js"
+  ]
+}

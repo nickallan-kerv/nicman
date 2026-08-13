@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nicman</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section class="game-layout">
+      <section class="board-wrap" aria-label="Nicman game board">
+        <canvas id="game" width="588" height="588"></canvas>
+        <div id="overlay" class="overlay">
+          <h2 id="overlayTitle">Ready?</h2>
+          <p id="overlayText">Use cursor keys. Numpad 8, 4, 2, 6 also work.</p>
+          <button id="actionButton" type="button">Start Game</button>
+        </div>
+      </section>
+
+      <aside class="side-panel" aria-label="Game info panel">
+        <h1>Nicman</h1>
+        <div class="stats">
+          <p><span class="label">Score</span><span id="score">0</span></p>
+          <p><span class="label">Lives</span><span id="lives">3UP</span></p>
+          <p><span class="label">Level</span><span id="level">1</span></p>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script src="nicman-rules.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
