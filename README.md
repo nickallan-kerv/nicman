@@ -62,3 +62,14 @@ npm test
 ```
 
 Coverage thresholds are enforced at 80%+ for lines, statements, functions, and branches.
+
+## Deploy To GitHub Pages (Auto)
+
+This repository includes a GitHub Actions workflow at `.github/workflows/deploy-pages.yml`.
+
+1. Push this repository to GitHub and make sure your default branch is `main`.
+2. In GitHub, open your repo and go to **Settings > Pages**.
+3. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+4. Push to `main`.
+
+Each push to `main` will run tests and then deploy the static game files to GitHub Pages.
