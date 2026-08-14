@@ -191,6 +191,18 @@ const POWER_APPLE_GIANT_MS = 10000;
 const POWER_APPLE_LIFETIME_MS = 14000;
 const POWER_APPLE_RESPAWN_MIN_MS = 12000;
 const POWER_APPLE_RESPAWN_MAX_MS = 24000;
+const APPLE_RENDER_STYLE = {
+  regular: {
+    body: "#38c866",
+    stem: "#7f4e2c",
+    leaf: "#62d77a"
+  },
+  power: {
+    body: "#39d66b",
+    stem: "#ffdca3",
+    leaf: "#66cc7a"
+  }
+};
 
 const pacman = {
   x: 10 * TILE_SIZE + TILE_SIZE / 2,
@@ -798,6 +810,7 @@ function resetPositions() {
   pacman.dir = { x: 0, y: 0 };
   pacman.nextDir = { x: 0, y: 0 };
   pacman.turnQueue = [];
+  pacman.mouth = 0;
 
   giantUntil = 0;
   giantGhostCombo = 0;
@@ -1469,6 +1482,45 @@ function drawScorePopups(now) {
   ctx.globalAlpha = 1;
 }
 
+function drawAppleStemAndLeaf(center, options) {
+  const {
+    stemColor,
+    leafColor,
+    lineWidth,
+    stemStart,
+    stemControl,
+    stemEnd,
+    leafCenter,
+    leafRadius,
+    leafRotation
+  } = options;
+
+  ctx.strokeStyle = stemColor;
+  ctx.lineWidth = lineWidth;
+  ctx.beginPath();
+  ctx.moveTo(center.x + stemStart.x, center.y + stemStart.y);
+  ctx.quadraticCurveTo(
+    center.x + stemControl.x,
+    center.y + stemControl.y,
+    center.x + stemEnd.x,
+    center.y + stemEnd.y
+  );
+  ctx.stroke();
+
+  ctx.fillStyle = leafColor;
+  ctx.beginPath();
+  ctx.ellipse(
+    center.x + leafCenter.x,
+    center.y + leafCenter.y,
+    leafRadius.x,
+    leafRadius.y,
+    leafRotation,
+    0,
+    Math.PI * 2
+  );
+  ctx.fill();
+}
+
 function drawFruit() {
   if (!fruit.active) {
     return;
@@ -1536,20 +1588,21 @@ function drawFruit() {
   }
 
   if (fruit.kind === "apple") {
-    ctx.fillStyle = "#ef3e39";
+    ctx.fillStyle = APPLE_RENDER_STYLE.regular.body;
     ctx.beginPath();
     ctx.arc(center.x, center.y + 2, 8.2 * pulse, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = "#7f4e2c";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(center.x, center.y - 7);
-    ctx.quadraticCurveTo(center.x + 1, center.y - 11, center.x + 3, center.y - 10);
-    ctx.stroke();
-    ctx.fillStyle = "#62d77a";
-    ctx.beginPath();
-    ctx.ellipse(center.x + 5, center.y - 8, 3.8, 2.4, -0.4, 0, Math.PI * 2);
-    ctx.fill();
+    drawAppleStemAndLeaf(center, {
+      stemColor: APPLE_RENDER_STYLE.regular.stem,
+      leafColor: APPLE_RENDER_STYLE.regular.leaf,
+      lineWidth: 2,
+      stemStart: { x: 0, y: -7 },
+      stemControl: { x: 1, y: -11 },
+      stemEnd: { x: 3, y: -10 },
+      leafCenter: { x: 5, y: -8 },
+      leafRadius: { x: 3.8, y: 2.4 },
+      leafRotation: -0.4
+    });
     return;
   }
 
@@ -1648,23 +1701,23 @@ function drawPowerApple() {
   const pulse = 0.92 + Math.sin(performance.now() / 140) * 0.08;
   const radius = 8.2 * pulse;
 
-  ctx.fillStyle = "#ff3a2f";
+  ctx.fillStyle = APPLE_RENDER_STYLE.power.body;
   ctx.beginPath();
   ctx.arc(center.x - 4, center.y + 1.5, radius * 0.8, 0, Math.PI * 2);
   ctx.arc(center.x + 4, center.y + 1.5, radius * 0.8, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = "#ffdca3";
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  ctx.moveTo(center.x, center.y - 1);
-  ctx.quadraticCurveTo(center.x + 1, center.y - 11, center.x + 5, center.y - 10);
-  ctx.stroke();
-
-  ctx.fillStyle = "#66cc7a";
-  ctx.beginPath();
-  ctx.ellipse(center.x + 7, center.y - 10, 3.8, 2.2, -0.45, 0, Math.PI * 2);
-  ctx.fill();
+  drawAppleStemAndLeaf(center, {
+    stemColor: APPLE_RENDER_STYLE.power.stem,
+    leafColor: APPLE_RENDER_STYLE.power.leaf,
+    lineWidth: 1.8,
+    stemStart: { x: 0, y: -1 },
+    stemControl: { x: 1, y: -11 },
+    stemEnd: { x: 5, y: -10 },
+    leafCenter: { x: 7, y: -10 },
+    leafRadius: { x: 3.8, y: 2.2 },
+    leafRotation: -0.45
+  });
 }
 
 function isWallCell(x, y) {
@@ -1820,7 +1873,8 @@ function drawPacman() {
     return;
   }
 
-  const angle = Math.abs(Math.sin(pacman.mouth)) * 0.9;
+  const moving = pacman.dir.x !== 0 || pacman.dir.y !== 0;
+  const angle = moving ? Math.abs(Math.sin(pacman.mouth)) * 0.9 : 0.22;
   const heading = pacmanHeading();
   let facing = 0;
   if (heading.x === -1) {
@@ -2064,12 +2118,6 @@ function newGame() {
 }
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "a" || event.key === "A" || event.code === "KeyA") {
-    event.preventDefault();
-    spawnPowerApple(performance.now(), true);
-    return;
-  }
-
   const dir = KEY_DIRS[event.key] || KEY_DIRS[event.code];
   if (!dir) {
     return;
