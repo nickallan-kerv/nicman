@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import rules from "../nicman-rules.js";
+import fs from "node:fs";
+import vm from "node:vm";
 
 describe("fruitForLevel", () => {
   it("maps early levels to expected fruit and points", () => {
@@ -121,5 +123,30 @@ describe("computeBoardWidth", () => {
         canvasHeight: Number.NaN
       })
     ).toBeNull();
+  });
+});
+
+describe("module wrapper", () => {
+  it("falls back to `this` when globalThis is unavailable", () => {
+    const source = fs.readFileSync(new URL("../nicman-rules.js", import.meta.url), "utf8");
+    const context = { console };
+    vm.createContext(context);
+
+    // Simulate an older environment where globalThis is unavailable.
+    vm.runInContext(`var globalThis = undefined;\n${source}`, context);
+
+    expect(context.NicmanRules).toBeTruthy();
+    expect(context.NicmanRules.fruitForLevel(1)).toEqual({ kind: "cherry", points: 100 });
+  });
+
+  it("still attaches to global scope when module.exports is falsy", () => {
+    const source = fs.readFileSync(new URL("../nicman-rules.js", import.meta.url), "utf8");
+    const context = { console, module: {} };
+    vm.createContext(context);
+
+    vm.runInContext(source, context);
+
+    expect(context.NicmanRules).toBeTruthy();
+    expect(context.module.exports).toBeUndefined();
   });
 });
