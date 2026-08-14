@@ -9,6 +9,14 @@
   --danger: #ff5d73;
 }
 
+@font-face {
+  font-family: "PacfontGood";
+  src: url("font/PacfontGood-yYye.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -54,6 +62,20 @@ body {
   text-transform: uppercase;
   color: var(--accent);
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), 0 0 20px rgba(247, 183, 51, 0.45);
+}
+
+.side-panel h1.nicman-logo {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-bottom: 0.1rem;
+  line-height: 1;
+  font-family: "PacfontGood", "Bungee", sans-serif;
+  font-size: clamp(2.05rem, 5.4vw, 3.4rem);
+  letter-spacing: 0.03em;
+  text-transform: none;
+  color: #ffe680;
+  text-shadow: 0 5px 10px rgba(0, 0, 0, 0.45);
 }
 
 .stats {
@@ -180,6 +202,10 @@ canvas {
   .side-panel h1 {
     text-align: center;
     font-size: clamp(1.4rem, 7vw, 2rem);
+  }
+
+  .nicman-logo {
+    width: 100%;
   }
 
   .stats {
