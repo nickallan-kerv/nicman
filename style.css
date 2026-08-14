@@ -39,6 +39,52 @@ body {
   width: min(98vw, 1180px);
 }
 
+.mobile-controls {
+  display: none;
+  width: 100%;
+  justify-items: center;
+  gap: 0.25rem;
+  margin: 0.35rem 0 0;
+}
+
+.joystick {
+  width: min(100%, 170px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid rgba(248, 243, 212, 0.3);
+  background:
+    radial-gradient(circle at 30% 28%, rgba(247, 183, 51, 0.2), transparent 45%),
+    radial-gradient(circle at 65% 70%, rgba(63, 169, 245, 0.18), transparent 50%),
+    rgba(2, 10, 25, 0.66);
+  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.35), 0 10px 26px rgba(0, 0, 0, 0.3);
+  position: relative;
+  touch-action: none;
+  user-select: none;
+}
+
+.joystick-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 42%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid rgba(248, 243, 212, 0.34);
+  background: linear-gradient(145deg, rgba(247, 183, 51, 0.95), rgba(252, 74, 26, 0.9));
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.33);
+  transition: transform 45ms linear;
+}
+
+.mobile-controls-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  opacity: 0.82;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
 .game-layout {
   display: flex;
   align-items: flex-start;
@@ -242,4 +288,18 @@ canvas {
   .overlay {
     inset: 0.55rem;
   }
+
+  .joystick {
+    width: min(52vw, 210px);
+  }
+}
+
+@media (any-pointer: coarse) {
+  .mobile-controls {
+    display: grid;
+  }
+}
+
+body.force-mobile-controls .mobile-controls {
+  display: grid;
 }
