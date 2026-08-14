@@ -60,11 +60,24 @@ const overlay = document.getElementById("overlay");
 const overlayTitle = document.getElementById("overlayTitle");
 const overlayText = document.getElementById("overlayText");
 const actionButton = document.getElementById("actionButton");
+const joystick = document.getElementById("joystick");
+const joystickKnob = document.getElementById("joystickKnob");
 
 const widthTiles = MAP_TEMPLATE[0].length;
 const heightTiles = MAP_TEMPLATE.length;
 canvas.width = widthTiles * TILE_SIZE;
 canvas.height = heightTiles * TILE_SIZE;
+
+const queryParams = new URLSearchParams(window.location.search);
+const forceMobileControls =
+  queryParams.get("mobilecontrols") === "1" || queryParams.get("mobilecontrols") === "true";
+if (forceMobileControls) {
+  document.body.classList.add("force-mobile-controls");
+}
+
+const JOYSTICK_RADIUS_RATIO = 0.34;
+const JOYSTICK_DEADZONE = 0.28;
+let joystickPointerId = null;
 
 function parsePx(value) {
   const n = Number.parseFloat(value || "0");
@@ -1087,6 +1100,80 @@ function setOverlay(title, text, buttonText) {
   } else {
     overlayTitle.style.removeProperty("font-size");
   }
+}
+
+function beginPlayIfIdle() {
+  if (!gameRunning && !gameOver) {
+    gameRunning = true;
+    hideOverlay();
+  }
+}
+
+function isMobileJoystickEnabled() {
+  if (forceMobileControls) {
+    return true;
+  }
+  return window.matchMedia("(any-pointer: coarse)").matches;
+}
+
+function setJoystickKnobOffset(dx, dy) {
+  if (!joystickKnob) {
+    return;
+  }
+  joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+}
+
+function resetJoystick() {
+  joystickPointerId = null;
+  setJoystickKnobOffset(0, 0);
+}
+
+function joystickDirection(dx, dy, maxRadius) {
+  if (!Number.isFinite(maxRadius) || maxRadius <= 0) {
+    return null;
+  }
+
+  const nx = dx / maxRadius;
+  const ny = dy / maxRadius;
+  const magnitude = Math.hypot(nx, ny);
+  if (magnitude < JOYSTICK_DEADZONE) {
+    return null;
+  }
+
+  if (Math.abs(nx) >= Math.abs(ny)) {
+    return nx >= 0 ? RIGHT : LEFT;
+  }
+  return ny >= 0 ? DOWN : UP;
+}
+
+function handleJoystickInput(clientX, clientY) {
+  if (!joystick) {
+    return;
+  }
+
+  const rect = joystick.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  const maxRadius = rect.width * JOYSTICK_RADIUS_RATIO;
+
+  let dx = clientX - centerX;
+  let dy = clientY - centerY;
+  const distance = Math.hypot(dx, dy);
+  if (distance > maxRadius && distance > 0) {
+    const scale = maxRadius / distance;
+    dx *= scale;
+    dy *= scale;
+  }
+
+  setJoystickKnobOffset(dx, dy);
+  const dir = joystickDirection(dx, dy, maxRadius);
+  if (!dir) {
+    return;
+  }
+
+  queuePacmanTurn(dir);
+  applyQueuedTurn();
+  beginPlayIfIdle();
 }
 
 function fitGameOverOverlayTitle() {
@@ -2178,11 +2265,7 @@ document.addEventListener("keydown", (event) => {
   event.preventDefault();
   queuePacmanTurn(dir);
   applyQueuedTurn();
-
-  if (!gameRunning && !gameOver) {
-    gameRunning = true;
-    hideOverlay();
-  }
+  beginPlayIfIdle();
 });
 
 actionButton.addEventListener("click", () => {
@@ -2192,6 +2275,38 @@ actionButton.addEventListener("click", () => {
   gameRunning = true;
   hideOverlay();
 });
+
+if (joystick) {
+  joystick.addEventListener("pointerdown", (event) => {
+    if (!isMobileJoystickEnabled()) {
+      return;
+    }
+    event.preventDefault();
+    joystickPointerId = event.pointerId;
+    joystick.setPointerCapture(event.pointerId);
+    handleJoystickInput(event.clientX, event.clientY);
+  });
+
+  joystick.addEventListener("pointermove", (event) => {
+    if (event.pointerId !== joystickPointerId) {
+      return;
+    }
+    event.preventDefault();
+    handleJoystickInput(event.clientX, event.clientY);
+  });
+
+  const finishJoystickPointer = (event) => {
+    if (event.pointerId !== joystickPointerId) {
+      return;
+    }
+    event.preventDefault();
+    resetJoystick();
+  };
+
+  joystick.addEventListener("pointerup", finishJoystickPointer);
+  joystick.addEventListener("pointercancel", finishJoystickPointer);
+  joystick.addEventListener("lostpointercapture", resetJoystick);
+}
 
 window.addEventListener("resize", scheduleBoardFit);
 
