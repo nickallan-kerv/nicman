@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=8" />
+  <link rel="stylesheet" href="style.css?v=11" />
 </head>
 <body>
   <main class="app-shell">
@@ -28,11 +28,18 @@
           <p><span class="label">Lives</span><span id="lives">3UP</span></p>
           <p><span class="label">Level</span><span id="level">1</span></p>
         </div>
+
+        <section class="mobile-controls" aria-label="Mobile controls">
+          <div id="joystick" class="joystick" aria-label="Virtual joystick" role="application">
+            <div id="joystickKnob" class="joystick-knob"></div>
+          </div>
+          <p class="mobile-controls-hint">Drag joystick to move</p>
+        </section>
       </aside>
     </section>
   </main>
 
-  <script src="nicman-rules.js?v=5"></script>
-  <script src="game.js?v=5"></script>
+  <script src="nicman-rules.js?v=7"></script>
+  <script src="game.js?v=7"></script>
 </body>
 </html>
