@@ -4,6 +4,12 @@ A lightweight browser implementation of Pacman&trade; built with plain HTML, CSS
 
 ![Nicman gameplay](docs/gameplay-cropped.png)
 
+## Play Online
+
+Launch the game in your browser:
+
+- https://nickallan-kerv.github.io/nicman/
+
 ## Features
 
 - Grid-based maze with pellets and power pellets
