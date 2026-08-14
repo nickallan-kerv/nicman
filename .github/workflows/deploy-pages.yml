@@ -48,12 +48,13 @@ jobs:
 
       - name: Prepare static site
         run: |
-          mkdir -p public/docs
+          mkdir -p public/docs public/font
           cp index.html public/
           cp style.css public/
           cp game.js public/
           cp nicman-rules.js public/
           cp docs/gameplay-cropped.png public/docs/
+          cp font/PacfontGood-yYye.ttf public/font/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
