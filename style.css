@@ -72,10 +72,11 @@ body {
   line-height: 1;
   font-family: "PacfontGood", "Bungee", sans-serif;
   font-size: clamp(2.05rem, 5.4vw, 3.4rem);
+  font-weight: 400;
   letter-spacing: 0.03em;
   text-transform: none;
-  color: #ffe680;
-  text-shadow: 0 5px 10px rgba(0, 0, 0, 0.45);
+  color: var(--accent);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
 }
 
 .stats {
@@ -146,6 +147,16 @@ canvas {
   font-family: "Bungee", sans-serif;
   color: var(--accent);
   letter-spacing: 0.04em;
+}
+
+.overlay h2.overlay-title-arcade {
+  font-family: "PacfontGood", "Bungee", sans-serif;
+  font-size: 3rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
 }
 
 .overlay p {
