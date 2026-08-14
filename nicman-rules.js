@@ -113,4 +113,5 @@
     module.exports = api;
   }
   globalScope.NicmanRules = api;
+  /* c8 ignore next */
 })(typeof globalThis !== "undefined" ? globalThis : this);
