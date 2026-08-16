@@ -295,6 +295,12 @@ canvas {
 }
 
 @media (any-pointer: coarse) {
+  html,
+  body {
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+
   .mobile-controls {
     display: grid;
   }
