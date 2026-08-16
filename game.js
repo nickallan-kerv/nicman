@@ -240,6 +240,7 @@ const powerApple = {
 let nextPowerAppleSpawnAt = 0;
 let giantUntil = 0;
 let giantGhostCombo = 0;
+let mobileGestureLockBound = false;
 
 const ghostSpawn = [
   { x: 10, y: 10, color: "#ff4f5a", kind: "blinky", scatter: { x: widthTiles - 2, y: 1 } },
@@ -1107,6 +1108,19 @@ function beginPlayIfIdle() {
     gameRunning = true;
     hideOverlay();
   }
+}
+
+function setupMobileGestureLock() {
+  if (mobileGestureLockBound || !isMobileJoystickEnabled()) {
+    return;
+  }
+
+  // Prevent pull-to-refresh and page panning on touch devices while playing.
+  document.addEventListener("touchmove", (event) => {
+    event.preventDefault();
+  }, { passive: false });
+
+  mobileGestureLockBound = true;
 }
 
 function isMobileJoystickEnabled() {
@@ -2311,6 +2325,7 @@ if (joystick) {
 window.addEventListener("resize", scheduleBoardFit);
 
 newGame();
+setupMobileGestureLock();
 fitBoardToViewport();
 setOverlay("Ready?", "Use cursor keys. Numpad 8, 4, 2, 6 also work.", "Start Game");
 requestAnimationFrame(update);
