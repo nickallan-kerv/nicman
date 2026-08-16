@@ -131,6 +131,12 @@ function fitBoardToViewport() {
 }
 
 let resizeRaf = 0;
+const SIMULATION_STEP_MS = 1000 / 60;
+const MAX_FRAME_DELTA_MS = 250;
+const MAX_SIMULATION_STEPS_PER_FRAME = 12;
+let simulationLagMs = 0;
+let lastFrameTimeMs = null;
+
 function scheduleBoardFit() {
   if (resizeRaf) {
     cancelAnimationFrame(resizeRaf);
@@ -241,6 +247,7 @@ let nextPowerAppleSpawnAt = 0;
 let giantUntil = 0;
 let giantGhostCombo = 0;
 let mobileGestureLockBound = false;
+let pacmanGhostHomeExitLock = null;
 
 const ghostSpawn = [
   { x: 10, y: 10, color: "#ff4f5a", kind: "blinky", scatter: { x: widthTiles - 2, y: 1 } },
@@ -337,8 +344,14 @@ function tileBlockedForEntity(entity, tx, ty, attemptedDir = null) {
     return false;
   }
 
-  // Pink home gate blocks Pacman.
+  // Pink home gate blocks Pacman unless giant-exit lock is actively moving upward.
   if (entity === pacman) {
+    if (pacmanGhostHomeExitLock) {
+      const dirToCheck = attemptedDir || entity.dir || { x: 0, y: 0 };
+      if (dirToCheck.y === -1) {
+        return false;
+      }
+    }
     return true;
   }
 
@@ -517,6 +530,123 @@ function ensurePacmanOutsideWall() {
   }
 }
 
+function beginPacmanGhostHomeExitLock() {
+  const tile = tileCenterFromCoords(pacman.x, pacman.y);
+  if (!isInsideGhostHome(tile)) {
+    pacmanGhostHomeExitLock = null;
+    return;
+  }
+
+  const preferred =
+    (pacman.dir.x !== 0 || pacman.dir.y !== 0)
+      ? pacman.dir
+      : (pacman.nextDir.x !== 0 || pacman.nextDir.y !== 0)
+        ? pacman.nextDir
+        : UP;
+
+  pacmanGhostHomeExitLock = { ...preferred };
+}
+
+function canPlacePacmanOnTile(tile) {
+  const tx = wrapTileX(tile.x);
+  const ty = tile.y;
+  if (ty < 0 || ty >= heightTiles) {
+    return false;
+  }
+  if (tileIsWall(tx, ty) || map[ty][tx] === "-" || isInsideGhostHome({ x: tx, y: ty })) {
+    return false;
+  }
+
+  const px = (tx + 0.5) * TILE_SIZE;
+  const py = (ty + 0.5) * TILE_SIZE;
+  return canPacmanStandAt(px, py);
+}
+
+function placePacmanOnTile(tile, dir = null) {
+  const tx = wrapTileX(tile.x);
+  const ty = tile.y;
+  pacman.x = (tx + 0.5) * TILE_SIZE;
+  pacman.y = (ty + 0.5) * TILE_SIZE;
+  if (dir) {
+    pacman.dir = { ...dir };
+    pacman.nextDir = { ...dir };
+  }
+}
+
+function placePacmanOutsideGhostHomeByMomentum() {
+  const tile = tileCenterFromCoords(pacman.x, pacman.y);
+  if (!isInsideGhostHome(tile)) {
+    return false;
+  }
+
+  const preferred =
+    (pacman.dir.x !== 0 || pacman.dir.y !== 0)
+      ? pacman.dir
+      : (pacman.nextDir.x !== 0 || pacman.nextDir.y !== 0)
+        ? pacman.nextDir
+        : RIGHT;
+
+  const movingHorizontally = preferred.x !== 0;
+  if (!movingHorizontally) {
+    return false;
+  }
+
+  const sideY = GHOST_GATE_TILE.y + 1;
+  const leftExit = { x: GHOST_GATE_TILE.x - 3, y: sideY };
+  const rightExit = { x: GHOST_GATE_TILE.x + 3, y: sideY };
+
+  const orderedCandidates = preferred.x < 0
+    ? [
+      { tile: leftExit, dir: LEFT },
+      { tile: { x: leftExit.x - 1, y: leftExit.y }, dir: LEFT },
+      { tile: rightExit, dir: RIGHT }
+    ]
+    : [
+      { tile: rightExit, dir: RIGHT },
+      { tile: { x: rightExit.x + 1, y: rightExit.y }, dir: RIGHT },
+      { tile: leftExit, dir: LEFT }
+    ];
+
+  for (const candidate of orderedCandidates) {
+    if (!canPlacePacmanOnTile(candidate.tile)) {
+      continue;
+    }
+    placePacmanOnTile(candidate.tile, candidate.dir);
+    return true;
+  }
+
+  return false;
+}
+
+function updatePacmanGhostHomeExitLock() {
+  if (!pacmanGhostHomeExitLock) {
+    return false;
+  }
+
+  const tile = tileCenterFromCoords(pacman.x, pacman.y);
+  if (!isInsideGhostHome(tile)) {
+    pacmanGhostHomeExitLock = null;
+    return false;
+  }
+
+  if (canTravelFromTile(pacman, pacmanGhostHomeExitLock)) {
+    pacman.nextDir = { ...pacmanGhostHomeExitLock };
+    pacman.dir = { ...pacmanGhostHomeExitLock };
+    return true;
+  }
+
+  // If the preserved direction cannot progress, force upward toward gate exit.
+  if (canTravelFromTile(pacman, UP)) {
+    pacmanGhostHomeExitLock = { ...UP };
+    pacman.nextDir = { ...UP };
+    pacman.dir = { ...UP };
+    return true;
+  }
+
+  pacman.dir = { x: 0, y: 0 };
+  return true;
+}
+
 function updatePowerApple(now) {
   if (powerApple.active && now >= powerApple.expiresAt) {
     powerApple.active = false;
@@ -545,6 +675,11 @@ function syncPacmanGiantState(now) {
     pacman.radius = PACMAN_BASE_RADIUS;
     giantGhostCombo = 0;
     ensurePacmanOutsideWall();
+    if (placePacmanOutsideGhostHomeByMomentum()) {
+      pacmanGhostHomeExitLock = null;
+    } else {
+      beginPacmanGhostHomeExitLock();
+    }
   }
 }
 
@@ -737,12 +872,53 @@ function applyQueuedTurn() {
   }
 }
 
+function tryApplyImmediateReverseTurn() {
+  if (pacman.turnQueue.length === 0) {
+    return false;
+  }
+
+  if (pacman.dir.x === 0 && pacman.dir.y === 0) {
+    return false;
+  }
+
+  for (let i = 0; i < pacman.turnQueue.length; i += 1) {
+    const candidate = pacman.turnQueue[i];
+    if (!opposite(candidate, pacman.dir)) {
+      continue;
+    }
+
+    if (!canTravelFromTile(pacman, candidate)) {
+      continue;
+    }
+
+    pacman.nextDir = { ...candidate };
+    pacman.dir = { ...candidate };
+    pacman.turnQueue.splice(0, i + 1);
+    return true;
+  }
+
+  return false;
+}
+
 function updatePacmanDirection() {
+  if (updatePacmanGhostHomeExitLock()) {
+    return;
+  }
+
   if (isPacmanGiant()) {
     applyQueuedTurn();
     if (pacman.nextDir.x !== 0 || pacman.nextDir.y !== 0) {
       pacman.dir = { ...pacman.nextDir };
     }
+    return;
+  }
+
+  if (opposite(pacman.nextDir, pacman.dir) && canTravelFromTile(pacman, pacman.nextDir)) {
+    pacman.dir = { ...pacman.nextDir };
+    return;
+  }
+
+  if (tryApplyImmediateReverseTurn()) {
     return;
   }
 
@@ -826,6 +1002,7 @@ function resetPositions() {
   pacman.nextDir = { x: 0, y: 0 };
   pacman.turnQueue = [];
   pacman.mouth = 0;
+  pacmanGhostHomeExitLock = null;
 
   giantUntil = 0;
   giantGhostCombo = 0;
@@ -2195,44 +2372,23 @@ function render() {
   drawScorePopups(now);
 }
 
-function update(now) {
-  const frameNow = Number.isFinite(now) ? now : performance.now();
-  syncPacmanGiantState(frameNow);
-
-  if (!gameRunning) {
-    render();
-    requestAnimationFrame(update);
-    return;
-  }
-
-  if (frameNow < pauseUntil) {
-    render();
-    requestAnimationFrame(update);
-    return;
-  }
-
-  if (pacmanDeath.active) {
-    updatePacmanDeath(frameNow);
-    render();
-    requestAnimationFrame(update);
-    return;
-  }
-
-  updateGlobalMode(frameNow);
-  updateFruit(frameNow);
-  updatePowerApple(frameNow);
+function runSimulationStep(now) {
+  syncPacmanGiantState(now);
+  updateGlobalMode(now);
+  updateFruit(now);
+  updatePowerApple(now);
 
   alignToGrid(pacman);
   updatePacmanDirection();
   const basePacmanSpeed = pacman.speed;
-  if (isPacmanGiant(frameNow)) {
+  if (isPacmanGiant(now)) {
     pacman.speed = basePacmanSpeed * 2;
   }
   stepEntity(pacman);
   pacman.speed = basePacmanSpeed;
   eatPellet();
-  collectFruitIfTouched(frameNow);
-  collectPowerAppleIfTouched(frameNow);
+  collectFruitIfTouched(now);
+  collectPowerAppleIfTouched(now);
   updateGhosts();
   updateCollisions();
 
@@ -2242,6 +2398,56 @@ function update(now) {
 
   if (pelletsRemaining <= 0) {
     onLevelComplete();
+  }
+}
+
+function update(now) {
+  const frameNow = Number.isFinite(now) ? now : performance.now();
+  if (lastFrameTimeMs === null) {
+    lastFrameTimeMs = frameNow;
+  }
+
+  let frameDelta = frameNow - lastFrameTimeMs;
+  lastFrameTimeMs = frameNow;
+
+  if (!Number.isFinite(frameDelta) || frameDelta < 0) {
+    frameDelta = SIMULATION_STEP_MS;
+  }
+  frameDelta = Math.min(frameDelta, MAX_FRAME_DELTA_MS);
+  simulationLagMs += frameDelta;
+
+  if (!gameRunning) {
+    simulationLagMs = 0;
+    render();
+    requestAnimationFrame(update);
+    return;
+  }
+
+  if (frameNow < pauseUntil) {
+    simulationLagMs = 0;
+    render();
+    requestAnimationFrame(update);
+    return;
+  }
+
+  if (pacmanDeath.active) {
+    updatePacmanDeath(frameNow);
+    simulationLagMs = 0;
+    render();
+    requestAnimationFrame(update);
+    return;
+  }
+
+  let steps = 0;
+  while (simulationLagMs >= SIMULATION_STEP_MS && steps < MAX_SIMULATION_STEPS_PER_FRAME) {
+    const stepNow = frameNow - simulationLagMs + SIMULATION_STEP_MS;
+    runSimulationStep(stepNow);
+    simulationLagMs -= SIMULATION_STEP_MS;
+    steps += 1;
+  }
+
+  if (steps === MAX_SIMULATION_STEPS_PER_FRAME && simulationLagMs >= SIMULATION_STEP_MS) {
+    simulationLagMs = 0;
   }
 
   updateHud();
@@ -2264,6 +2470,8 @@ function newGame() {
   pacmanDeath.active = false;
   pacmanDeath.startedAt = 0;
   gameOver = false;
+  simulationLagMs = 0;
+  lastFrameTimeMs = null;
   resetMap();
   resetPositions();
   resetModeCycle(performance.now());
