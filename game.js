@@ -427,6 +427,8 @@ const PACMAN_BASE_RADIUS = TILE_SIZE * 0.38;
 const PACMAN_GIANT_RADIUS = PACMAN_BASE_RADIUS * 3;
 const PACMAN_SIZE_TRANSITION_MS = 2000;
 const POWER_APPLE_GIANT_MS = 10000;
+const FRIGHTENED_WARNING_MS = 2000;
+const FRIGHTENED_FLASH_MS = 150;
 const POWER_APPLE_LIFETIME_MS = 14000;
 const POWER_APPLE_RESPAWN_MIN_MS = 12000;
 const POWER_APPLE_RESPAWN_MAX_MS = 24000;
@@ -1809,6 +1811,19 @@ function ghostIsFrightened(ghost, now) {
   return frightenedActive(now) && ghost.frightened && !ghost.isReturning;
 }
 
+function frightenedWarningActive(now) {
+  const remaining = frightenedUntil - now;
+  return remaining > 0 && remaining <= FRIGHTENED_WARNING_MS;
+}
+
+function frightenedFlashOn(now) {
+  const remaining = frightenedUntil - now;
+  if (remaining <= 0) {
+    return false;
+  }
+  return Math.floor(remaining / FRIGHTENED_FLASH_MS) % 2 === 0;
+}
+
 function getGhostTarget(ghost) {
   if (ghost.isReturning) {
     return ghost.home;
@@ -2678,9 +2693,11 @@ function drawGhost(ghost) {
   }
 
   const now = performance.now();
-  const giantActive = isPacmanGiant(now);
+  const giantVisualActive = isPacmanGiant(now) || isPacmanShrinking();
   const frightened = ghostIsFrightened(ghost, now);
-  const color = giantActive ? "#37d65f" : frightened ? "#3b68ff" : ghost.color;
+  const flashingWarning = frightened && frightenedWarningActive(now);
+  const frightenedColor = flashingWarning && !frightenedFlashOn(now) ? ghost.color : "#3b68ff";
+  const color = giantVisualActive ? "#37d65f" : frightened ? frightenedColor : ghost.color;
   const bodyW = ghost.radius * 1.9;
   const bodyH = ghost.radius * 2;
   const frame = Math.floor(now / 130) % 2;
