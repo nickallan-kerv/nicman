@@ -156,7 +156,7 @@ function isStackedLayout() {
 
 function renderLeaderboard() {
   const sideLimit = 10;
-  const overlayLimit = 8;
+  const overlayLimit = 5;
   renderLeaderboardList(leaderboardList, leaderboardEntries, sideLimit);
   renderLeaderboardList(overlayLeaderboardList, leaderboardEntries, overlayLimit);
   if (overlayLeaderboardPanel) {
