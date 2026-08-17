@@ -424,6 +424,8 @@ const MODE_PHASES = [
 ];
 
 const PACMAN_BASE_RADIUS = TILE_SIZE * 0.38;
+const PACMAN_GIANT_RADIUS = PACMAN_BASE_RADIUS * 3;
+const PACMAN_SIZE_TRANSITION_MS = 2000;
 const POWER_APPLE_GIANT_MS = 10000;
 const POWER_APPLE_LIFETIME_MS = 14000;
 const POWER_APPLE_RESPAWN_MIN_MS = 12000;
@@ -463,6 +465,9 @@ const powerApple = {
 let nextPowerAppleSpawnAt = 0;
 let giantUntil = 0;
 let giantGhostCombo = 0;
+let pacmanSizeTransition = null;
+let pacmanShrinkFinalizePending = false;
+let pacmanShrinkRealign = null;
 let mobileGestureLockBound = false;
 let pacmanGhostHomeExitLock = null;
 
@@ -506,6 +511,9 @@ function resetMap() {
   giantUntil = 0;
   giantGhostCombo = 0;
   pacman.radius = PACMAN_BASE_RADIUS;
+  pacmanSizeTransition = null;
+  pacmanShrinkFinalizePending = false;
+  pacmanShrinkRealign = null;
   scheduleNextPowerAppleSpawn(performance.now());
 }
 
@@ -549,7 +557,7 @@ function tileBlockedForEntity(entity, tx, ty, attemptedDir = null) {
   const wrappedX = wrapTileX(tx);
   const cell = map[ty][wrappedX];
 
-  if (entity === pacman && isPacmanGiant()) {
+  if (entity === pacman && pacmanCanIgnoreWalls()) {
     return false;
   }
 
@@ -692,6 +700,81 @@ function spawnPowerApple(now, forced = false) {
 
 function isPacmanGiant(now = performance.now()) {
   return now < giantUntil;
+}
+
+function startPacmanSizeTransition(targetRadius, now, phase) {
+  const from = pacman.radius;
+  pacmanSizeTransition = {
+    from,
+    to: targetRadius,
+    startedAt: now,
+    phase
+  };
+
+  if (Math.abs(from - targetRadius) < 0.001) {
+    pacman.radius = targetRadius;
+    pacmanSizeTransition = null;
+  }
+}
+
+function updatePacmanSizeTransition(now) {
+  if (!pacmanSizeTransition) {
+    return null;
+  }
+
+  const elapsed = now - pacmanSizeTransition.startedAt;
+  const t = Math.max(0, Math.min(1, elapsed / PACMAN_SIZE_TRANSITION_MS));
+  pacman.radius = pacmanSizeTransition.from + (pacmanSizeTransition.to - pacmanSizeTransition.from) * t;
+
+  if (t >= 1) {
+    const completedPhase = pacmanSizeTransition.phase;
+    pacman.radius = pacmanSizeTransition.to;
+    pacmanSizeTransition = null;
+    return completedPhase;
+  }
+
+  return null;
+}
+
+function pacmanSizeTransitionProgress(now) {
+  if (!pacmanSizeTransition) {
+    return 1;
+  }
+  const elapsed = now - pacmanSizeTransition.startedAt;
+  return Math.max(0, Math.min(1, elapsed / PACMAN_SIZE_TRANSITION_MS));
+}
+
+function beginPacmanShrinkRealign() {
+  const centerX = (toTile(pacman.x) + 0.5) * TILE_SIZE;
+  const centerY = (toTile(pacman.y) + 0.5) * TILE_SIZE;
+  pacmanShrinkRealign = {
+    fromX: pacman.x,
+    fromY: pacman.y,
+    toX: centerX,
+    toY: centerY
+  };
+}
+
+function applyPacmanShrinkRealign(now) {
+  if (!pacmanShrinkRealign || !pacmanSizeTransition || pacmanSizeTransition.phase !== "shrink") {
+    return;
+  }
+
+  const t = pacmanSizeTransitionProgress(now);
+  pacman.x = pacmanShrinkRealign.fromX + (pacmanShrinkRealign.toX - pacmanShrinkRealign.fromX) * t;
+  pacman.y = pacmanShrinkRealign.fromY + (pacmanShrinkRealign.toY - pacmanShrinkRealign.fromY) * t;
+
+  if (t >= 1) {
+    pacmanShrinkRealign = null;
+  }
+}
+
+function pacmanCanIgnoreWalls(now = performance.now()) {
+  return isPacmanGiant(now) || (pacmanSizeTransition && pacmanSizeTransition.phase === "shrink");
+}
+
+function isPacmanShrinking() {
+  return Boolean(pacmanSizeTransition && pacmanSizeTransition.phase === "shrink");
 }
 
 function canPacmanStandAt(x, y) {
@@ -877,10 +960,10 @@ function updatePowerApple(now) {
 
 function syncPacmanGiantState(now) {
   if (isPacmanGiant(now)) {
-    const giantRadius = PACMAN_BASE_RADIUS * 3;
-    if (pacman.radius !== giantRadius) {
-      pacman.radius = giantRadius;
+    if (!pacmanSizeTransition || pacmanSizeTransition.phase !== "grow") {
+      startPacmanSizeTransition(PACMAN_GIANT_RADIUS, now, "grow");
     }
+    updatePacmanSizeTransition(now);
     return;
   }
 
@@ -888,8 +971,24 @@ function syncPacmanGiantState(now) {
     giantUntil = 0;
   }
 
-  if (pacman.radius !== PACMAN_BASE_RADIUS) {
+  if (pacman.radius > PACMAN_BASE_RADIUS + 0.001) {
+    if (!pacmanSizeTransition || pacmanSizeTransition.phase !== "shrink") {
+      startPacmanSizeTransition(PACMAN_BASE_RADIUS, now, "shrink");
+      beginPacmanShrinkRealign();
+    }
+
+    applyPacmanShrinkRealign(now);
+    const completedPhase = updatePacmanSizeTransition(now);
+    if (completedPhase !== "shrink") {
+      return;
+    }
+    pacmanShrinkRealign = null;
+  } else if (pacman.radius < PACMAN_BASE_RADIUS - 0.001) {
     pacman.radius = PACMAN_BASE_RADIUS;
+  }
+
+  if (pacmanShrinkFinalizePending) {
+    pacmanShrinkFinalizePending = false;
     giantGhostCombo = 0;
     ensurePacmanOutsideWall();
     pacman.turnQueue = [];
@@ -982,7 +1081,9 @@ function collectPowerAppleIfTouched(now) {
   powerApple.active = false;
   giantUntil = now + POWER_APPLE_GIANT_MS;
   giantGhostCombo = 0;
-  pacman.radius = PACMAN_BASE_RADIUS * 3;
+  pacmanShrinkFinalizePending = true;
+  pacmanShrinkRealign = null;
+  startPacmanSizeTransition(PACMAN_GIANT_RADIUS, now, "grow");
 }
 
 function pacmanHeading() {
@@ -1006,7 +1107,7 @@ function canMove(entity, dir) {
   if (dir.x === 0 && dir.y === 0) {
     return true;
   }
-  if (entity === pacman && isPacmanGiant()) {
+  if (entity === pacman && pacmanCanIgnoreWalls()) {
     return true;
   }
   const nx = entity.x + dir.x * entity.speed;
@@ -1179,7 +1280,7 @@ function stepEntity(entity) {
     entity.x = -entity.radius;
   }
 
-  if (entity === pacman && isPacmanGiant()) {
+  if (entity === pacman && pacmanCanIgnoreWalls()) {
     if (entity.y < -entity.radius) {
       entity.y = canvas.height + entity.radius;
     } else if (entity.y > canvas.height + entity.radius) {
@@ -1223,6 +1324,9 @@ function resetPositions() {
   pacman.turnQueue = [];
   pacman.mouth = 0;
   pacmanGhostHomeExitLock = null;
+  pacmanSizeTransition = null;
+  pacmanShrinkFinalizePending = false;
+  pacmanShrinkRealign = null;
 
   giantUntil = 0;
   giantGhostCombo = 0;
@@ -2015,12 +2119,18 @@ function consumeGhost(ghost, now, points) {
 function updateCollisions() {
   const now = performance.now();
   const giantActive = isPacmanGiant(now);
+  const shrinking = isPacmanShrinking();
   for (const ghost of ghosts) {
     if (ghost.isReturning) {
       continue;
     }
 
     if (!circleHit(pacman, ghost)) {
+      continue;
+    }
+
+    // During shrink animation, Pac-Man is temporarily immune to ghost contact.
+    if (shrinking) {
       continue;
     }
 
@@ -2705,6 +2815,9 @@ function newGame() {
   scorePopups = [];
   giantUntil = 0;
   giantGhostCombo = 0;
+  pacmanSizeTransition = null;
+  pacmanShrinkFinalizePending = false;
+  pacmanShrinkRealign = null;
   nextPowerAppleSpawnAt = 0;
   pacmanHiddenUntil = 0;
   pacmanDeath.active = false;
