@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=12" />
+  <link rel="stylesheet" href="style.css?v=14" />
 </head>
 <body>
   <main class="app-shell">
@@ -32,14 +32,32 @@
         <section class="mobile-controls" aria-label="Mobile controls">
           <div id="joystick" class="joystick" aria-label="Virtual joystick" role="application">
             <div id="joystickKnob" class="joystick-knob"></div>
+            <span class="joystick-label">Joystick</span>
           </div>
-          <p class="mobile-controls-hint">Drag joystick to move</p>
+        </section>
+
+        <section class="leaderboard-panel" aria-label="Leaderboard panel">
+          <div class="leaderboard-header">
+            <h2>Leaderboard</h2>
+            <button id="refreshLeaderboard" type="button">Refresh</button>
+          </div>
+          <ol id="leaderboardList" class="leaderboard-list" aria-live="polite">
+            <li class="leaderboard-empty">Loading scores...</li>
+          </ol>
+          <p id="leaderboardStatus" class="leaderboard-status"></p>
+          <form id="scoreSubmitForm" class="score-submit-form" autocomplete="off">
+            <div class="score-submit-row">
+              <span class="score-submit-name">NAME:</span>
+              <input id="playerName" name="playerName" type="text" maxlength="16" placeholder="PLAYER1" />
+              <button id="submitScoreButton" type="submit">Submit</button>
+            </div>
+          </form>
         </section>
       </aside>
     </section>
   </main>
 
   <script src="nicman-rules.js?v=7"></script>
-  <script src="game.js?v=9"></script>
+  <script src="game.js?v=11"></script>
 </body>
 </html>
