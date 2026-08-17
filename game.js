@@ -892,6 +892,8 @@ function syncPacmanGiantState(now) {
     pacman.radius = PACMAN_BASE_RADIUS;
     giantGhostCombo = 0;
     ensurePacmanOutsideWall();
+    pacman.turnQueue = [];
+    pacman.nextDir = { ...pacman.dir };
     if (placePacmanOutsideGhostHomeByMomentum()) {
       pacmanGhostHomeExitLock = null;
     } else {
@@ -1076,14 +1078,14 @@ function applyQueuedTurn() {
   if (pacman.turnQueue.length === 0) {
     return;
   }
-  for (let i = 0; i < pacman.turnQueue.length; i += 1) {
+  for (let i = pacman.turnQueue.length - 1; i >= 0; i -= 1) {
     const candidate = pacman.turnQueue[i];
     if (!canTravelFromTile(pacman, candidate)) {
       continue;
     }
 
     pacman.nextDir = { ...candidate };
-    // Drop stale queued intents up to and including the one we can execute now.
+    // Drop all stale queued intents once the newest valid input is chosen.
     pacman.turnQueue.splice(0, i + 1);
     return;
   }
@@ -1130,6 +1132,8 @@ function updatePacmanDirection() {
     return;
   }
 
+  applyQueuedTurn();
+
   if (opposite(pacman.nextDir, pacman.dir) && canTravelFromTile(pacman, pacman.nextDir)) {
     pacman.dir = { ...pacman.nextDir };
     return;
@@ -1150,7 +1154,6 @@ function updatePacmanDirection() {
   if (nearCenter) {
     snapToTileCenter(pacman);
   }
-  applyQueuedTurn();
 
   if (canTravelFromTile(pacman, pacman.nextDir)) {
     pacman.dir = { ...pacman.nextDir };
@@ -1655,6 +1658,9 @@ function updateHud() {
 }
 
 function opposite(dirA, dirB) {
+  if ((dirA.x === 0 && dirA.y === 0) || (dirB.x === 0 && dirB.y === 0)) {
+    return false;
+  }
   return dirA.x === -dirB.x && dirA.y === -dirB.y;
 }
 
