@@ -62,6 +62,12 @@ const overlayText = document.getElementById("overlayText");
 const actionButton = document.getElementById("actionButton");
 const joystick = document.getElementById("joystick");
 const joystickKnob = document.getElementById("joystickKnob");
+const leaderboardList = document.getElementById("leaderboardList");
+const leaderboardStatus = document.getElementById("leaderboardStatus");
+const refreshLeaderboardButton = document.getElementById("refreshLeaderboard");
+const scoreSubmitForm = document.getElementById("scoreSubmitForm");
+const playerNameInput = document.getElementById("playerName");
+const submitScoreButton = document.getElementById("submitScoreButton");
 
 const widthTiles = MAP_TEMPLATE[0].length;
 const heightTiles = MAP_TEMPLATE.length;
@@ -77,11 +83,203 @@ if (forceMobileControls) {
 
 const JOYSTICK_RADIUS_RATIO = 0.34;
 const JOYSTICK_DEADZONE = 0.28;
+const LEADERBOARD_LIMIT = 10;
+const LEADERBOARD_REFRESH_MS = 60000;
+const SUPABASE_URL = "https://wnjnbddbguunhiubcxpg.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_8a42lb3cv4ilFQ91nJiSzA_uo5ij_K_";
+const SCORE_TABLE_PATH = "/rest/v1/scores";
+const PLAYER_NAME_STORAGE_KEY = "nicman.playerName";
 let joystickPointerId = null;
+let leaderboardEntries = [];
+let scoreSubmittedForCurrentGame = false;
+let leaderboardRefreshTimerId = null;
 
 function parsePx(value) {
   const n = Number.parseFloat(value || "0");
   return Number.isFinite(n) ? n : 0;
+}
+
+function sanitizePlayerName(value) {
+  const trimmed = String(value || "").trim().slice(0, 16);
+  const clean = trimmed.replace(/[^a-z0-9_\-\s]/gi, "");
+  return clean || "PLAYER1";
+}
+
+function leaderboardHeaders(includeJsonContentType = false) {
+  const headers = {
+    apikey: SUPABASE_PUBLISHABLE_KEY
+  };
+  if (includeJsonContentType) {
+    headers["Content-Type"] = "application/json";
+  }
+  return headers;
+}
+
+function setLeaderboardStatus(message, isError = false) {
+  if (!leaderboardStatus) {
+    return;
+  }
+  leaderboardStatus.textContent = message;
+  leaderboardStatus.classList.toggle("error", Boolean(isError));
+}
+
+function renderLeaderboard() {
+  if (!leaderboardList) {
+    return;
+  }
+
+  const displayLimit = window.matchMedia("(max-width: 640px)").matches ? 5 : 8;
+
+  if (!Array.isArray(leaderboardEntries) || leaderboardEntries.length === 0) {
+    leaderboardList.innerHTML = '<li class="leaderboard-empty">No scores yet. Be the first!</li>';
+    return;
+  }
+
+  leaderboardList.innerHTML = leaderboardEntries
+    .slice(0, displayLimit)
+    .map((entry, index) => {
+      const rank = index + 1;
+      const name = sanitizePlayerName(entry.player_name || "PLAYER1");
+      const value = Number.isFinite(entry.score) ? entry.score : Number(entry.score) || 0;
+      return `<li><span class="leaderboard-rank">#${rank}</span><span class="leaderboard-name">${name}</span><span class="leaderboard-score">${value}</span></li>`;
+    })
+    .join("");
+}
+
+async function fetchLeaderboard() {
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    setLeaderboardStatus("Leaderboard unavailable: missing configuration.", true);
+    return;
+  }
+
+  try {
+    const url = `${SUPABASE_URL}${SCORE_TABLE_PATH}?select=player_name,score,level,created_at&order=score.desc,created_at.asc&limit=${LEADERBOARD_LIMIT}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: leaderboardHeaders(false)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Request failed (${response.status}): ${errorText}`);
+    }
+
+    const rows = await response.json();
+    leaderboardEntries = Array.isArray(rows) ? rows : [];
+    renderLeaderboard();
+    setLeaderboardStatus("");
+  } catch (error) {
+    renderLeaderboard();
+    setLeaderboardStatus(`Could not load leaderboard. ${error.message}`, true);
+  }
+}
+
+function canSubmitCurrentScore() {
+  return gameOver && !scoreSubmittedForCurrentGame && Number.isFinite(score) && score > 0;
+}
+
+function updateSubmitButtonState() {
+  if (!submitScoreButton) {
+    return;
+  }
+  submitScoreButton.disabled = !canSubmitCurrentScore();
+}
+
+async function submitCurrentScore(event) {
+  if (event) {
+    event.preventDefault();
+  }
+
+  if (!canSubmitCurrentScore()) {
+    setLeaderboardStatus("Finish a run first to submit a score.", true);
+    return;
+  }
+
+  const playerName = sanitizePlayerName(playerNameInput ? playerNameInput.value : "");
+
+  if (playerNameInput) {
+    playerNameInput.value = playerName;
+  }
+  localStorage.setItem(PLAYER_NAME_STORAGE_KEY, playerName);
+
+  try {
+    setLeaderboardStatus("Submitting score...");
+    updateSubmitButtonState();
+    const payload = {
+      player_name: playerName,
+      score,
+      level
+    };
+
+    const response = await fetch(`${SUPABASE_URL}${SCORE_TABLE_PATH}`, {
+      method: "POST",
+      headers: leaderboardHeaders(true),
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Request failed (${response.status}): ${errorText}`);
+    }
+
+    scoreSubmittedForCurrentGame = true;
+    setLeaderboardStatus("Score submitted. Nice run!");
+    updateSubmitButtonState();
+    await fetchLeaderboard();
+  } catch (error) {
+    setLeaderboardStatus(`Score submit failed. ${error.message}`, true);
+    updateSubmitButtonState();
+  }
+}
+
+function initializeLeaderboardUi() {
+  if (playerNameInput) {
+    playerNameInput.value = sanitizePlayerName(localStorage.getItem(PLAYER_NAME_STORAGE_KEY) || "PLAYER1");
+  }
+
+  if (refreshLeaderboardButton) {
+    refreshLeaderboardButton.addEventListener("click", () => {
+      fetchLeaderboard();
+    });
+  }
+
+  if (scoreSubmitForm) {
+    scoreSubmitForm.addEventListener("submit", submitCurrentScore);
+  }
+
+  updateSubmitButtonState();
+}
+
+function stopLeaderboardAutoRefresh() {
+  if (leaderboardRefreshTimerId === null) {
+    return;
+  }
+  clearInterval(leaderboardRefreshTimerId);
+  leaderboardRefreshTimerId = null;
+}
+
+function startLeaderboardAutoRefresh() {
+  stopLeaderboardAutoRefresh();
+  if (document.hidden) {
+    return;
+  }
+
+  leaderboardRefreshTimerId = setInterval(() => {
+    if (document.hidden) {
+      return;
+    }
+    fetchLeaderboard();
+  }, LEADERBOARD_REFRESH_MS);
+}
+
+function handleLeaderboardVisibilityChange() {
+  if (document.hidden) {
+    stopLeaderboardAutoRefresh();
+    return;
+  }
+
+  fetchLeaderboard();
+  startLeaderboardAutoRefresh();
 }
 
 function fitBoardToViewport() {
@@ -1275,6 +1473,7 @@ function setOverlay(title, text, buttonText) {
   // Keep game-over text on one line and sized to ~80% of overlay width.
   if (isGameOverTitle) {
     requestAnimationFrame(fitGameOverOverlayTitle);
+    updateSubmitButtonState();
   } else {
     overlayTitle.style.removeProperty("font-size");
   }
@@ -1412,12 +1611,14 @@ function fitGameOverOverlayTitle() {
 
 function hideOverlay() {
   overlay.classList.add("hidden");
+  updateSubmitButtonState();
 }
 
 function updateHud() {
   scoreEl.textContent = String(score);
   livesEl.textContent = RULES ? RULES.formatLivesUp(lives) : `${Math.max(0, lives)}UP`;
   levelEl.textContent = String(level);
+  updateSubmitButtonState();
 }
 
 function opposite(dirA, dirB) {
@@ -2470,12 +2671,14 @@ function newGame() {
   pacmanDeath.active = false;
   pacmanDeath.startedAt = 0;
   gameOver = false;
+  scoreSubmittedForCurrentGame = false;
   simulationLagMs = 0;
   lastFrameTimeMs = null;
   resetMap();
   resetPositions();
   resetModeCycle(performance.now());
   updateHud();
+  setLeaderboardStatus("");
   pauseUntil = performance.now() + 350;
 }
 
@@ -2531,8 +2734,13 @@ if (joystick) {
 }
 
 window.addEventListener("resize", scheduleBoardFit);
+window.addEventListener("resize", renderLeaderboard);
+document.addEventListener("visibilitychange", handleLeaderboardVisibilityChange);
 
 newGame();
+initializeLeaderboardUi();
+fetchLeaderboard();
+startLeaderboardAutoRefresh();
 setupMobileGestureLock();
 fitBoardToViewport();
 setOverlay("Ready?", "Use cursor keys. Numpad 8, 4, 2, 6 also work.", "Start Game");
