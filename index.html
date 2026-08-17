@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=14" />
+  <link rel="stylesheet" href="style.css?v=16" />
 </head>
 <body>
   <main class="app-shell">
@@ -18,15 +18,31 @@
           <h2 id="overlayTitle">Ready?</h2>
           <p id="overlayText">Use cursor keys. Numpad 8, 4, 2, 6 also work.</p>
           <button id="actionButton" type="button">Start Game</button>
+          <form id="scoreSubmitForm" class="score-submit-form hidden" autocomplete="off">
+            <div class="score-submit-row">
+              <span class="score-submit-name">NAME:</span>
+              <input id="playerName" name="playerName" type="text" maxlength="16" placeholder="PLAYER1" />
+              <button id="submitScoreButton" type="submit">Submit</button>
+            </div>
+          </form>
+          <section id="overlayLeaderboardPanel" class="overlay-leaderboard-panel" aria-label="Leaderboard in game over">
+            <h3>Leaderboard</h3>
+            <ol id="overlayLeaderboardList" class="leaderboard-list" aria-live="polite">
+              <li class="leaderboard-empty">Loading scores...</li>
+            </ol>
+            <p id="overlayLeaderboardStatus" class="leaderboard-status"></p>
+          </section>
         </div>
       </section>
 
       <aside class="side-panel" aria-label="Game info panel">
-        <h1 class="nicman-logo" aria-label="nicman">nicman</h1>
-        <div class="stats">
-          <p><span class="label">Score</span><span id="score">0</span></p>
-          <p><span class="label">Lives</span><span id="lives">3UP</span></p>
-          <p><span class="label">Level</span><span id="level">1</span></p>
+        <div class="hud-row">
+          <h1 class="nicman-logo" aria-label="nicman">nicman</h1>
+          <div class="stats">
+            <p><span class="label">Score</span><span id="score">0</span></p>
+            <p><span class="label">Lives</span><span id="lives">3UP</span></p>
+            <p><span class="label">Level</span><span id="level">1</span></p>
+          </div>
         </div>
 
         <section class="mobile-controls" aria-label="Mobile controls">
@@ -45,19 +61,12 @@
             <li class="leaderboard-empty">Loading scores...</li>
           </ol>
           <p id="leaderboardStatus" class="leaderboard-status"></p>
-          <form id="scoreSubmitForm" class="score-submit-form" autocomplete="off">
-            <div class="score-submit-row">
-              <span class="score-submit-name">NAME:</span>
-              <input id="playerName" name="playerName" type="text" maxlength="16" placeholder="PLAYER1" />
-              <button id="submitScoreButton" type="submit">Submit</button>
-            </div>
-          </form>
         </section>
       </aside>
     </section>
   </main>
 
   <script src="nicman-rules.js?v=7"></script>
-  <script src="game.js?v=11"></script>
+  <script src="game.js?v=13"></script>
 </body>
 </html>

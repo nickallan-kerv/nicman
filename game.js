@@ -64,6 +64,9 @@ const joystick = document.getElementById("joystick");
 const joystickKnob = document.getElementById("joystickKnob");
 const leaderboardList = document.getElementById("leaderboardList");
 const leaderboardStatus = document.getElementById("leaderboardStatus");
+const overlayLeaderboardPanel = document.getElementById("overlayLeaderboardPanel");
+const overlayLeaderboardList = document.getElementById("overlayLeaderboardList");
+const overlayLeaderboardStatus = document.getElementById("overlayLeaderboardStatus");
 const refreshLeaderboardButton = document.getElementById("refreshLeaderboard");
 const scoreSubmitForm = document.getElementById("scoreSubmitForm");
 const playerNameInput = document.getElementById("playerName");
@@ -116,26 +119,27 @@ function leaderboardHeaders(includeJsonContentType = false) {
 }
 
 function setLeaderboardStatus(message, isError = false) {
-  if (!leaderboardStatus) {
-    return;
+  if (leaderboardStatus) {
+    leaderboardStatus.textContent = message;
+    leaderboardStatus.classList.toggle("error", Boolean(isError));
   }
-  leaderboardStatus.textContent = message;
-  leaderboardStatus.classList.toggle("error", Boolean(isError));
+  if (overlayLeaderboardStatus) {
+    overlayLeaderboardStatus.textContent = message;
+    overlayLeaderboardStatus.classList.toggle("error", Boolean(isError));
+  }
 }
 
-function renderLeaderboard() {
-  if (!leaderboardList) {
+function renderLeaderboardList(targetList, entries, displayLimit) {
+  if (!targetList) {
     return;
   }
 
-  const displayLimit = window.matchMedia("(max-width: 640px)").matches ? 5 : 8;
-
-  if (!Array.isArray(leaderboardEntries) || leaderboardEntries.length === 0) {
-    leaderboardList.innerHTML = '<li class="leaderboard-empty">No scores yet. Be the first!</li>';
+  if (!Array.isArray(entries) || entries.length === 0) {
+    targetList.innerHTML = '<li class="leaderboard-empty">No scores yet. Be the first!</li>';
     return;
   }
 
-  leaderboardList.innerHTML = leaderboardEntries
+  targetList.innerHTML = entries
     .slice(0, displayLimit)
     .map((entry, index) => {
       const rank = index + 1;
@@ -144,6 +148,20 @@ function renderLeaderboard() {
       return `<li><span class="leaderboard-rank">#${rank}</span><span class="leaderboard-name">${name}</span><span class="leaderboard-score">${value}</span></li>`;
     })
     .join("");
+}
+
+function isStackedLayout() {
+  return window.matchMedia("(max-width: 640px)").matches;
+}
+
+function renderLeaderboard() {
+  const sideLimit = 10;
+  const overlayLimit = 8;
+  renderLeaderboardList(leaderboardList, leaderboardEntries, sideLimit);
+  renderLeaderboardList(overlayLeaderboardList, leaderboardEntries, overlayLimit);
+  if (overlayLeaderboardPanel) {
+    overlayLeaderboardPanel.classList.toggle("hidden", !isStackedLayout() || !gameOver);
+  }
 }
 
 async function fetchLeaderboard() {
@@ -343,6 +361,7 @@ function scheduleBoardFit() {
     resizeRaf = 0;
     fitBoardToViewport();
     fitGameOverOverlayTitle();
+    renderLeaderboard();
   });
 }
 
@@ -1465,9 +1484,16 @@ function assistReturningGhostAtGate(ghost) {
 function setOverlay(title, text, buttonText) {
   overlayTitle.textContent = title;
   const isGameOverTitle = String(title).trim().toLowerCase() === "game over";
+  document.body.classList.toggle("game-over-overlay", isGameOverTitle);
   overlayTitle.classList.toggle("overlay-title-arcade", isGameOverTitle);
   overlayText.textContent = text;
   actionButton.textContent = buttonText;
+  if (scoreSubmitForm) {
+    scoreSubmitForm.classList.toggle("hidden", !isGameOverTitle);
+  }
+  if (overlayLeaderboardPanel) {
+    overlayLeaderboardPanel.classList.toggle("hidden", !isGameOverTitle || !isStackedLayout());
+  }
   overlay.classList.remove("hidden");
 
   // Keep game-over text on one line and sized to ~80% of overlay width.
@@ -1611,6 +1637,13 @@ function fitGameOverOverlayTitle() {
 
 function hideOverlay() {
   overlay.classList.add("hidden");
+  document.body.classList.remove("game-over-overlay");
+  if (scoreSubmitForm) {
+    scoreSubmitForm.classList.add("hidden");
+  }
+  if (overlayLeaderboardPanel) {
+    overlayLeaderboardPanel.classList.add("hidden");
+  }
   updateSubmitButtonState();
 }
 
@@ -2734,7 +2767,6 @@ if (joystick) {
 }
 
 window.addEventListener("resize", scheduleBoardFit);
-window.addEventListener("resize", renderLeaderboard);
 document.addEventListener("visibilitychange", handleLeaderboardVisibilityChange);
 
 newGame();
