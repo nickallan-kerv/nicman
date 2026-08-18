@@ -749,11 +749,20 @@ function pacmanSizeTransitionProgress(now) {
 function beginPacmanShrinkRealign() {
   const centerX = (toTile(pacman.x) + 0.5) * TILE_SIZE;
   const centerY = (toTile(pacman.y) + 0.5) * TILE_SIZE;
+  const preferredDir =
+    (pacman.dir.x !== 0 || pacman.dir.y !== 0)
+      ? { ...pacman.dir }
+      : (pacman.nextDir.x !== 0 || pacman.nextDir.y !== 0)
+        ? { ...pacman.nextDir }
+        : { ...pacmanHeading() };
+
+  const alignAxis = Math.abs(preferredDir.x) >= Math.abs(preferredDir.y) ? "y" : "x";
   pacmanShrinkRealign = {
-    fromX: pacman.x,
-    fromY: pacman.y,
     toX: centerX,
-    toY: centerY
+    toY: centerY,
+    lastT: 0,
+    alignAxis,
+    preferredDir
   };
 }
 
@@ -763,8 +772,18 @@ function applyPacmanShrinkRealign(now) {
   }
 
   const t = pacmanSizeTransitionProgress(now);
-  pacman.x = pacmanShrinkRealign.fromX + (pacmanShrinkRealign.toX - pacmanShrinkRealign.fromX) * t;
-  pacman.y = pacmanShrinkRealign.fromY + (pacmanShrinkRealign.toY - pacmanShrinkRealign.fromY) * t;
+  const prevT = pacmanShrinkRealign.lastT || 0;
+  const remaining = 1 - prevT;
+  const blend = remaining <= 0 ? 1 : Math.max(0, Math.min(1, (t - prevT) / remaining));
+
+  if (blend > 0) {
+    if (pacmanShrinkRealign.alignAxis === "x") {
+      pacman.x += (pacmanShrinkRealign.toX - pacman.x) * blend;
+    } else {
+      pacman.y += (pacmanShrinkRealign.toY - pacman.y) * blend;
+    }
+  }
+  pacmanShrinkRealign.lastT = t;
 
   if (t >= 1) {
     pacmanShrinkRealign = null;
@@ -990,11 +1009,30 @@ function syncPacmanGiantState(now) {
   }
 
   if (pacmanShrinkFinalizePending) {
+    const preferredDir = pacmanShrinkRealign ? pacmanShrinkRealign.preferredDir : null;
     pacmanShrinkFinalizePending = false;
     giantGhostCombo = 0;
     ensurePacmanOutsideWall();
     pacman.turnQueue = [];
-    pacman.nextDir = { ...pacman.dir };
+    const movementCandidates = [
+      preferredDir,
+      pacman.dir,
+      pacman.nextDir,
+      RIGHT,
+      LEFT,
+      UP,
+      DOWN
+    ].filter((dir) => dir && (dir.x !== 0 || dir.y !== 0));
+
+    const resolved = movementCandidates.find((dir) => canTravelFromTile(pacman, dir));
+    if (resolved) {
+      pacman.dir = { ...resolved };
+      pacman.nextDir = { ...resolved };
+    } else {
+      pacman.dir = { x: 0, y: 0 };
+      pacman.nextDir = { x: 0, y: 0 };
+    }
+
     if (placePacmanOutsideGhostHomeByMomentum()) {
       pacmanGhostHomeExitLock = null;
     } else {
@@ -1073,19 +1111,20 @@ function collectPowerAppleIfTouched(now) {
   }
 
   score += 1200;
+  const activationNow = performance.now();
   const center = tileCenterToPixels({ x: powerApple.x, y: powerApple.y });
   scorePopups.push({
     x: center.x,
     y: center.y,
     text: "1200",
-    expiresAt: now + 900
+    expiresAt: activationNow + 900
   });
   powerApple.active = false;
-  giantUntil = now + POWER_APPLE_GIANT_MS;
+  giantUntil = activationNow + POWER_APPLE_GIANT_MS;
   giantGhostCombo = 0;
   pacmanShrinkFinalizePending = true;
   pacmanShrinkRealign = null;
-  startPacmanSizeTransition(PACMAN_GIANT_RADIUS, now, "grow");
+  startPacmanSizeTransition(PACMAN_GIANT_RADIUS, activationNow, "grow");
 }
 
 function pacmanHeading() {
