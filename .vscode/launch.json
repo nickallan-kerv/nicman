@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "Run Pacman in Chrome",
-      "type": "pwa-chrome",
+      "type": "chrome",
       "request": "launch",
       "url": "http://localhost:8080/index.html",
       "webRoot": "${workspaceFolder}",
