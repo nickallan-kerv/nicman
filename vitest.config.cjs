@@ -2,7 +2,7 @@ module.exports = {
   test: {
     include: ["tests/**/*.test.js"],
     coverage: {
-      provider: "v8",
+      provider: "istanbul",
       reporter: ["text", "html"],
       include: ["src/nicman-rules.js"],
       thresholds: {
