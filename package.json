@@ -5,7 +5,8 @@
   "description": "Nicman browser game",
   "scripts": {
     "test": "vitest run --coverage",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "record:golden": "node scripts/record-golden.mjs"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.8",
