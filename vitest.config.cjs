@@ -4,7 +4,7 @@ module.exports = {
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
-      include: ["nicman-rules.js"],
+      include: ["src/nicman-rules.js"],
       thresholds: {
         lines: 80,
         functions: 80,
